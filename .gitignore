@@ -1,7 +1,8 @@
 /target
 /classes
 /checkouts
-out.edn
+/logs
+/out.edn
 pom.xml
 pom.xml.asc
 *.jar
