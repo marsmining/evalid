@@ -7,22 +7,25 @@
 
 (defmacro lwrite [c s n]
   `(do (log/info "smtp: writ:" ~s)
-       (alts! [[~c (str ~s "\r\n")] (timeout ~n)])))
+       (let [[v# c#] (alts! [[~c (str ~s "\r\n")] (timeout ~n)])]
+         (identical? c# ~c))))
 
 (defmacro lread [c n]
-  `(let [[v# _#] (alts! [~c (timeout ~n)])]
+  `(let [[v# c#] (alts! [~c (timeout ~n)])]
      (log/info "smtp: read:" v#)
      v#))
 
+(defn rvalid? [s] (.startsWith s "2"))
+
 (defn smtp-client [e]
   (fn [r w c]
-    (go (let [_ (lread r 5000)
-              _ (lwrite w "helo" 5000)
-              _ (lread r 5000)
-              _ (lwrite w "mail from: <foo@bar.com>" 5000)
-              _ (lread r 5000)
-              _ (lwrite w (format "rcpt to: %s" e) 5000)
-              rez (lread r 15000)]
+    (go (let [rez (lread r 5000)
+              rez (when (rvalid? rez) (lwrite w "helo" 5000))
+              rez (when rez (lread r 5000))
+              rez (when (rvalid? rez) (lwrite w "mail from: <foo@bar.com>" 5000))
+              rez (when rez (lread r 5000))
+              rez (when (rvalid? rez) (lwrite w (format "rcpt to: %s" e) 5000))
+              rez (when rez (lread r 15000))]
           (log/info "smtp: done:" e "->" rez)
           (close! r) (close! w) (close! c)))))
 
