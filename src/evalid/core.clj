@@ -1,6 +1,5 @@
 (ns evalid.core
-  (:require [clojure.pprint :refer [pprint]]
-            [nettyca.core :as nc]
+  (:require [nettyca.core :as nc]
             [clojure.tools.logging :as log]
             [clojure.core.async :refer [chan timeout go go-loop alts!
                                         <! >! close!] :as async])
@@ -12,41 +11,42 @@
 
 (defmacro lread [c n]
   `(let [[v# _#] (alts! [~c (timeout ~n)])]
-     (log/info "smtp: read:" v#)))
+     (log/info "smtp: read:" v#)
+     v#))
 
 (defn smtp-client [e]
   (fn [r w c]
-    (go (let [
-
-              _ (lread r 5000)
+    (go (let [_ (lread r 5000)
               _ (lwrite w "helo" 5000)
               _ (lread r 5000)
               _ (lwrite w "mail from: <foo@bar.com>" 5000)
               _ (lread r 5000)
               _ (lwrite w (format "rcpt to: %s" e) 5000)
-              _ (lread r 15000)
-
-              ]
-          (log/info "smtp: done:" nil)
+              rez (lread r 15000)]
+          (log/info "smtp: done:" e "->" rez)
           (close! r) (close! w) (close! c)))))
 
 (defn verify [{:keys [e f l u d m]}]
   (nc/start m 25 (smtp-client e) :client))
 
+(def verify-and-wait
+  (comp async/<!! :go-chan verify))
+
 (defn grab []
   (read-string (slurp "out.edn")))
 
 (defn -main [& args]
-  (let [g (grab)]
-    (println (count g))
-    (verify (last g))))
+  (let [xs (grab)]
+    (log/info "working on records:" (count xs))
+    (doseq [x xs]
+      (verify-and-wait x))))
 
 (comment
 
-  (def g (grab))
-  (pprint g)
-  (pprint (last g))
+  (def gs (grab))
+  (last gs)
 
-  (verify (last g))
+  (verify (last gs))
+  (verify-and-wait (last gs))
 
   )
