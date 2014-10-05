@@ -15,22 +15,26 @@
      (log/info "smtp: read:" v#)
      v#))
 
-(defn rvalid? [s] (.startsWith s "2"))
+(defn rvalid? [s] (and s (.startsWith s "2")))
 
-(defn smtp-client [e]
+(defn smtp-client [rcpt domain]
   (fn [r w c]
-    (go (let [rez (lread r 5000)
-              rez (when (rvalid? rez) (lwrite w "helo" 5000))
-              rez (when rez (lread r 5000))
-              rez (when (rvalid? rez) (lwrite w "mail from: <foo@bar.com>" 5000))
-              rez (when rez (lread r 5000))
-              rez (when (rvalid? rez) (lwrite w (format "rcpt to: %s" e) 5000))
-              rez (when rez (lread r 15000))]
-          (log/info "smtp: done:" e "->" rez)
+    (go (let [r0 (lread r 5000)
+              w0 (when (rvalid? r0)
+                   (lwrite w (format "helo %s" domain) 5000))
+              r1 (when w0 (lread r 5000))
+              w1 (when (rvalid? r1)
+                   (lwrite w "mail from: <foo@bar.com>" 5000))
+              r2 (when w1 (lread r 5000))
+              w2 (when (rvalid? r2)
+                   (lwrite w (format "rcpt to: <%s>" rcpt) 5000))
+              r3 (when w2 (lread r 15000))
+              rz (first (drop-while nil? [r3 r2 r1 r0]))]
+          (log/info "smtp: done:" rcpt "->" rz)
           (close! r) (close! w) (close! c)))))
 
-(defn verify [{:keys [e f l u d m]}]
-  (nc/start m 25 (smtp-client e) :client))
+(defn verify [{:keys [e f l u d m]} domain]
+  (nc/start m 25 (smtp-client e domain) :client))
 
 (def verify-and-wait
   (comp async/<!! :go-chan verify))
@@ -42,14 +46,14 @@
   (let [xs (grab)]
     (log/info "working on records:" (count xs))
     (doseq [x xs]
-      (verify-and-wait x))))
+      (verify-and-wait x (first args)))))
 
 (comment
 
   (def gs (grab))
   (last gs)
 
-  (verify (last gs))
-  (verify-and-wait (last gs))
+  (verify (last gs) "bar.com")
+  (verify-and-wait (last gs) "bar.com")
 
   )
