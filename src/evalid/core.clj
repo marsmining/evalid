@@ -35,7 +35,7 @@
 
 (defn verify [{:keys [e f l u d m]} domain]
   (log/info "contacting mx:" m ", for email:" e)
-  (nc/start m 25 (smtp-client e domain) :client))
+  (when m (nc/start m 25 (smtp-client e domain) :client)))
 
 (def verify-and-wait
   (comp async/<!! :go-chan verify))
