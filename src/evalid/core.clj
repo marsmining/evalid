@@ -33,12 +33,16 @@
           (log/info "smtp: done:" rcpt "->" rz)
           (close! r) (close! w) (close! c)))))
 
+(defn btake [c]
+  (let [[nc v] (async/alts!! [c (timeout 10000)])]
+    (identical? c nc)))
+
 (defn verify [{:keys [e f l u d m]} domain]
   (log/info "contacting mx:" m ", for email:" e)
   (nc/start m 25 (smtp-client e domain) :client))
 
 (def verify-and-wait
-  (comp async/<!! :go-chan verify))
+  (comp btake :go-chan verify))
 
 (defn grab []
   (read-string (slurp "out.edn")))
@@ -54,6 +58,9 @@
 
   (def gs (grab))
   (last gs)
+  (count gs)
+  (count (filter #(not (nil? (:m %))) gs))
+  (clojure.pprint/pprint (map #(vector (:m %) (:e %)) gs))
 
   (verify (last gs) "bar.com")
   (verify-and-wait (last gs) "bar.com")
