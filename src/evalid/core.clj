@@ -44,6 +44,8 @@
 (def verify-and-wait
   (comp btake :go-chan verify))
 
+;; out.edn is list of maps like: {:m mx-server :e email}
+
 (defn grab []
   (read-string (slurp "out.edn")))
 
@@ -58,9 +60,6 @@
 
   (def gs (grab))
   (last gs)
-  (count gs)
-  (count (filter #(not (nil? (:m %))) gs))
-  (clojure.pprint/pprint (map #(vector (:m %) (:e %)) gs))
 
   (verify (last gs) "bar.com")
   (verify-and-wait (last gs) "bar.com")
