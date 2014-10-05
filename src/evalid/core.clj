@@ -35,7 +35,7 @@
 
 (defn verify [{:keys [e f l u d m]} domain]
   (log/info "contacting mx:" m ", for email:" e)
-  (when m (nc/start m 25 (smtp-client e domain) :client)))
+  (nc/start m 25 (smtp-client e domain) :client))
 
 (def verify-and-wait
   (comp async/<!! :go-chan verify))
@@ -47,7 +47,8 @@
   (let [xs (grab)]
     (log/info "working on records:" (count xs))
     (doseq [x xs]
-      (verify-and-wait x (first args)))))
+      (when (:m x)
+        (verify-and-wait x (first args))))))
 
 (comment
 
