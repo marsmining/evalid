@@ -37,7 +37,7 @@
   (let [[nc v] (async/alts!! [c (timeout 10000)])]
     (identical? c nc)))
 
-(defn verify [{:keys [e f l u d m]} domain]
+(defn verify [{:keys [e m]} domain]
   (log/info "contacting mx:" m ", for email:" e)
   (nc/start m 25 (smtp-client e domain) :client))
 
